@@ -10,6 +10,7 @@ DST = "R9J3tqF6rXFQVUrrMxtkMBjgeobPmxLwXn"   # 현재 1위
 OBSERVED = 5527986869.06                     # 스크린샷상 DST 증가분(RVN)
 MAX_PAGES = int(os.environ.get("MAX_PAGES", "300"))
 D = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+os.makedirs(D, exist_ok=True)
 
 def get(path):
     for i in range(4):

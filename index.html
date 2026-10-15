@@ -1,0 +1,35 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RVN 1위 지갑 추적</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f6f5f1;--fg:#1d1b2e;--mut:#6b6880;--card:#fff;--line:#dcd9e6;--ac:#384182;--hot:#d9480f}
+@media(prefers-color-scheme:dark){:root{--bg:#14132a;--fg:#ecebf5;--mut:#9a97b5;--card:#1c1b38;--line:#322f58;--ac:#8c97f0;--hot:#ff8a4c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 "Pretendard","Noto Sans KR",system-ui,sans-serif;padding:24px 16px 64px}
+main{max-width:860px;margin:0 auto}h1{font-size:1.5rem;margin:0 0 4px}h2{font-size:1.1rem;margin:36px 0 8px}
+.sub{color:var(--mut);margin:0 0 24px}.verdict{border-left:4px solid var(--hot);padding:12px 16px;background:var(--card);font-size:1.1rem}
+.verdict b{font-size:1.9rem;display:block;line-height:1.2}.box{background:var(--card);border:1px solid var(--line);padding:12px;overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:.9rem}td,th{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}code{font-size:.8rem;word-break:break-all}a{color:var(--ac)}
+.tag{color:var(--hot);font-weight:600}
+</style></head><body><main>
+<h1>RVN 1위 지갑 이동 추적</h1>
+<p class="sub" id="meta">데이터를 불러오는 중…</p>
+<div class="verdict" id="verdict"></div>
+<h2>수신 주소별 합계 (쪼개기인지 통합인지)</h2><div class="box"><table id="rec"></table></div>
+<h2>일자별 이체 누적</h2><div class="box"><canvas id="c1" height="120"></canvas></div>
+<h2>두 주소의 잔고 추이</h2><div class="box"><canvas id="c2" height="120"></canvas></div>
+<h2>큰 이체 트랜잭션</h2><div class="box"><table id="txs"></table></div>
+</main><script>
+const f=n=>Number(n).toLocaleString("ko-KR",{maximumFractionDigits:0}),sh=a=>a.slice(0,8)+"…"+a.slice(-6);
+Promise.all([fetch("data/transfers.json").then(r=>r.json()),fetch("data/balances.json").then(r=>r.json())]).then(([T,B])=>{
+ document.getElementById("meta").textContent=`마지막 수집 ${new Date(T.updated*1000).toLocaleString("ko-KR")} · 과거 1위 ${sh(T.src)} → 현재 1위 ${sh(T.dst)}`;
+ const r=T.sent_to_dst/T.observed,share=T.total_out?T.sent_to_dst/T.total_out:0;
+ document.getElementById("verdict").innerHTML=`<b>${f(T.sent_to_dst)} RVN</b>이 과거 1위에서 현재 1위로 직접 이체됐습니다. 스크린샷 증가분(${f(T.observed)})의 ${(r*100).toFixed(1)}%이며, `+(r>=.95?"직접 이체만으로 대부분 설명됩니다.":"나머지는 경유 주소나 다른 출처일 수 있어 추가 홉 추적이 필요합니다.")+` 과거 1위의 전체 출금 중 ${(share*100).toFixed(1)}%가 이 주소로 갔고, 출금 수신 주소는 모두 ${f(T.recipient_count)}개입니다.`;
+ document.getElementById("rec").innerHTML="<tr><th>주소</th><th class=n>수량(RVN)</th><th class=n>비중</th></tr>"+T.recipients.map(x=>`<tr><td><code>${x.addr}</code>${x.addr==T.dst?' <span class=tag>현재 1위</span>':''}</td><td class=n>${f(x.amount)}</td><td class=n>${(x.amount/T.total_out*100).toFixed(1)}%</td></tr>`).join("");
+ const ac=getComputedStyle(document.documentElement).getPropertyValue("--ac"),hot=getComputedStyle(document.documentElement).getPropertyValue("--hot");
+ new Chart(c1,{type:"bar",data:{labels:T.daily.map(d=>d.d),datasets:[{label:"일별 이체",data:T.daily.map(d=>d.amount),backgroundColor:ac},{type:"line",label:"누적",data:T.daily.map(d=>d.cum),borderColor:hot,yAxisID:"y2",pointRadius:0}]},options:{scales:{y2:{position:"right",grid:{drawOnChartArea:false}}}}});
+ new Chart(c2,{type:"line",data:{labels:B.map(b=>new Date(b.t*1000).toLocaleDateString("ko-KR")),datasets:[{label:"과거 1위",data:B.map(b=>b.src),borderColor:ac,pointRadius:1},{label:"현재 1위",data:B.map(b=>b.dst),borderColor:hot,pointRadius:1}]}});
+ document.getElementById("txs").innerHTML="<tr><th>시각</th><th>txid</th><th class=n>수량(RVN)</th></tr>"+T.top_txs.map(x=>`<tr><td>${new Date(x.t*1000).toLocaleString("ko-KR")}</td><td><a href="https://ravencoin.network/tx/${x.txid}" target="_blank" rel="noopener"><code>${sh(x.txid)}</code></a></td><td class=n>${f(x.amount)}</td></tr>`).join("");
+}).catch(()=>document.getElementById("meta").textContent="data/ 폴더에 JSON이 없습니다. collector.py를 먼저 실행하세요.");
+</script></body></html>

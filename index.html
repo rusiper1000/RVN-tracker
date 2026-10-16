@@ -22,6 +22,8 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}code{font-size:.8re
 <h2>두 주소의 잔고 추이</h2><div class="box"><canvas id="c2" height="120"></canvas></div>
 <h2>큰 이체 트랜잭션</h2><div class="box"><table id="txs"></table></div>
 <section id="h2sec" hidden><h2>쪼갠 주소들의 이후 행방</h2><p class="sub" id="h2sum"></p><div class="box"><table id="h2"></table></div><h2>14개 주소에서 바깥으로 나간 곳 (큰 순서)</h2><div class="box"><table id="h2x"></table></div></section>
+<section id="wsec" hidden><h2>감시 목록 현황</h2><p class="sub" id="wmeta"></p><div class="box"><table id="wtab"></table></div>
+<h2>최근 대규모 이동</h2><div class="box"><table id="etab"></table></div></section>
 </main><script>
 const f=n=>Number(n).toLocaleString("ko-KR",{maximumFractionDigits:0}),sh=a=>a.slice(0,8)+"…"+a.slice(-6);
 Promise.all([fetch("data/transfers.json").then(r=>r.json()),fetch("data/balances.json").then(r=>r.json())]).then(([T,B])=>{
@@ -40,5 +42,13 @@ fetch("data/hop2.json").then(r=>r.json()).then(H=>{
  h2sum.textContent=`${H.rows.length}개 주소가 받은 ${f(t.received)} RVN 중 지금 남은 수량은 ${f(t.balance)}입니다. 이 주소들끼리 오간 수량은 ${f(t.sent_internal)}, 바깥 주소로 나간 수량은 ${f(t.sent_external)}(여러 번 거친 자금은 중복될 수 있음)이고, 현재 1위로 직접 간 수량은 ${f(t.sent_to_dst)}입니다. 출금 트랜잭션은 ${f(t.tx_out)}건, 서로 다른 외부 수신 주소는 ${f(t.ext_distinct)}개이고, 상위 20개 주소가 외부 출금의 ${(t.top20_share*100).toFixed(1)}%를 받았습니다.`;
  h2.innerHTML="<tr><th>분할 주소</th><th>받은 시기</th><th>출금 기간</th><th class=n>1위에게 받음</th><th class=n>전체 수신</th><th class=n>현재 잔고</th><th class=n>내부 이동</th><th class=n>외부 출금</th></tr>"+H.rows.map(r=>`<tr><td><code>${sh(r.addr)}</code></td><td>${dt(r.first_t)}</td><td>${dt(r.out_first)}~${dt(r.out_last)}</td><td class=n>${f(r.received)}</td><td class=n>${f(r.total_received)}</td><td class=n>${f(r.balance)}</td><td class=n>${f(r.sent_internal)}</td><td class=n>${f(r.sent_external)}</td></tr>`).join("");
  h2x.innerHTML="<tr><th>주소</th><th class=n>받은 수량</th><th class=n>현재 잔고</th></tr>"+H.ext_top.map(d=>`<tr><td><code>${d.addr}</code>${d.addr==H.dst?' <span class=tag>현재 1위</span>':''}</td><td class=n>${f(d.amount)}</td><td class=n>${f(d.balance)}</td></tr>`).join("");
+}).catch(()=>{});
+fetch("data/watch.json").then(r=>r.json()).then(W=>{
+ wsec.hidden=false;
+ wmeta.textContent=`마지막 수집 ${new Date(W.updated*1000).toLocaleString("ko-KR")} · 4~6시간 간격 갱신 · 금액 단위 RVN`;
+ const B=W.balances||[],ago=(h,a)=>{let r=null;for(const b of B){if(b.t<=W.updated-h*3600&&b[a]!=null)r=b[a]}return r},
+ ch=(w,h)=>{const p=ago(h,w.addr);if(p==null)return"-";const d=w.balance-p;return(d>0?"+":"")+f(d)};
+ wtab.innerHTML="<tr><th>지갑</th><th class=n>현재 잔고</th><th class=n>24시간</th><th class=n>7일</th></tr>"+W.wallets.map(w=>`<tr><td>${w.label} <small>${w.role}</small><br><code>${w.addr}</code></td><td class=n>${f(w.balance)}</td><td class=n>${ch(w,24)}</td><td class=n>${ch(w,168)}</td></tr>`).join("");
+ etab.innerHTML="<tr><th>시각</th><th>지갑</th><th>구분</th><th class=n>수량</th><th>상대 주소</th></tr>"+(W.events.slice(0,40).map(e=>`<tr><td>${new Date(e.t*1000).toLocaleString("ko-KR")}</td><td>${e.label}</td><td>${e.dir=="out"?'<span class=tag>출금</span>':"입금"}</td><td class=n>${f(e.amount)}</td><td><code>${e.cp?sh(e.cp):"-"}</code></td></tr>`).join("")||"<tr><td colspan=5>기록된 이동이 없습니다.</td></tr>");
 }).catch(()=>{});
 </script></body></html>
